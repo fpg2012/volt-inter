@@ -1,0 +1,10 @@
+[project]
+name = "torchvision"
+version = "0.28.0"
+description = "Resolver stub. Real torchvision is hardlinked from gaussian-splatting/.venv"
+requires-python = "==3.12.*"
+dependencies = ["torch==2.13.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

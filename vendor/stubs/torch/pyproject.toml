@@ -1,0 +1,9 @@
+[project]
+name = "torch"
+version = "2.13.0"
+description = "Resolver stub. Real CUDA torch is hardlinked from gaussian-splatting/.venv"
+requires-python = "==3.12.*"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

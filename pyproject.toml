@@ -5,8 +5,9 @@ description = "A 3D Point Cloud Understanding Library based on PyTorch"
 readme = "README.md"
 dependencies = [
     # Core PyTorch
-    "torch==2.8.0",
-    "torchvision==0.23.0",
+    # Match the already-cached CUDA 13 toolchain in ../gaussian-splatting.
+    "torch==2.13.0",
+    "torchvision==0.28.0",
     
     # Scientific & Utils
     "h5py",
@@ -29,8 +30,9 @@ dependencies = [
     "peft",
 
     # CUDA / Hardware specific
+    # Latest spconv wheel currently published; it bundles its own CUDA runtime.
     "spconv-cu126",
-    "flash-attn",
+    "flash-attn==2.8.3",
 
     # PyG Dependencies
     "torch-geometric",
@@ -45,10 +47,24 @@ dependencies = [
 requires-python = "==3.12.*"
 
 [tool.uv]
+# This CUDA project only targets the local Linux workstation. Without this,
+# uv also attempts to solve Windows/macOS environments and rejects CUDA-only
+# wheels that are intentionally unavailable there.
+environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'"
+]
 required-environments = [
     "sys_platform == 'linux' and platform_machine == 'x86_64'"
 ]
-no-build-isolation-package = ["pointops", "pointgroup_ops", "pointseg"]
+no-build-isolation-package = [
+    "pointops",
+    "pointgroup_ops",
+    "pointseg",
+    # Build against the hardlinked CUDA torch already in .venv, not a stub.
+    "flash-attn",
+    "torch-scatter",
+    "torch-cluster",
+]
 
 [project.optional-dependencies]
 notebook = [
@@ -63,28 +79,23 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.uv.sources]
-torch = [{ index = "pytorch-cu126" }]
-torchvision = [{ index = "pytorch-cu126" }]
-torch-scatter = [{ index = "pyg-cu126" }]
-torch-cluster = [{ index = "pyg-cu126" }]
+# Do not fetch the 2GB+ torch wheel from download.pytorch.org.
+# Real CUDA builds are hardlinked from ../gaussian-splatting/.venv
+# (see scripts/seed_torch_from_gs.sh). These stubs only satisfy the resolver.
+torch = { path = "vendor/stubs/torch" }
+torchvision = { path = "vendor/stubs/torchvision" }
+flash-attn = { url = "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.47/flash_attn-2.8.3+cu130torch2.13-cp312-cp312-linux_x86_64.whl" }
+# torch-scatter/torch-cluster do not yet publish torch 2.13 + cu130 wheels.
+# Leave them on PyPI so uv can build their source distributions locally.
 
 pointops = [{ path = "libs/pointops" }]
 pointgroup-ops = [{ path = "libs/pointgroup_ops" }]
 pointseg = [{ path = "libs/pointseg" }]
 
-[[tool.uv.index]]
-name = "pytorch-cu126"
-url = "https://download.pytorch.org/whl/cu126"
-explicit = true
-
-[[tool.uv.index]]
-name = "pyg-cu126"
-url = "https://data.pyg.org/whl/torch-2.8.0+cu126.html"
-explicit = true
-format = "flat"
-
-[tool.uv.extra-build-dependencies]
-flash-attn = [{ requirement = "torch", match-runtime = true}]
-
 [tool.uv.extra-build-variables]
-flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE"}
+# RTX 4070 = sm_89. Compiling only this arch cuts torch-scatter/cluster time a lot.
+torch-scatter = { TORCH_CUDA_ARCH_LIST = "8.9", FORCE_CUDA = "1" }
+torch-cluster = { TORCH_CUDA_ARCH_LIST = "8.9", FORCE_CUDA = "1" }
+pointops = { TORCH_CUDA_ARCH_LIST = "8.9", FORCE_CUDA = "1" }
+pointgroup_ops = { TORCH_CUDA_ARCH_LIST = "8.9", FORCE_CUDA = "1" }
+pointseg = { TORCH_CUDA_ARCH_LIST = "8.9", FORCE_CUDA = "1" }
